@@ -413,6 +413,23 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 // ✅ Health checks
 app.get("/", (req, res) => res.send("OK"));
 app.get("/api", (req, res) => res.json({ ok: true }));
+app.get("/health", async (req, res) => {
+  try {
+    await sequelize.authenticate();
+    res.json({ 
+      status: "healthy", 
+      database: "connected",
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      status: "unhealthy", 
+      database: "disconnected",
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 // ✅ Socket.IO
 const io = socketIo(server, {
@@ -452,9 +469,41 @@ StaffRoutes(app);
 
 // ✅ DB sync
 async function syncDatabase() {
-  await sequelize.authenticate();
-  await sequelize.sync({ alter: false });
-  console.log("✅ DB connected & synced");
+  try {
+    console.log("🔄 Connecting to database...");
+    
+    // Log connection details for debugging
+    if (process.env.MYSQL_PUBLIC_URL) {
+      console.log("   Using Railway MySQL public URL");
+    } else if (process.env.MYSQLHOST) {
+      console.log("   Using Railway MySQL internal connection");
+      console.log("   - Host:", process.env.MYSQLHOST);
+      console.log("   - Database:", process.env.MYSQLDATABASE);
+      console.log("   - User:", process.env.MYSQLUSER);
+      console.log("   - Port:", process.env.MYSQLPORT || 3306);
+    } else {
+      console.log("   Using local development database");
+    }
+    
+    await sequelize.authenticate();
+    console.log("✅ Database authentication successful");
+    
+    await sequelize.sync({ alter: false });
+    console.log("✅ Database synchronized");
+    return true;
+  } catch (error) {
+    console.error("❌ Database connection failed:", error.message);
+    
+    // Log more details for Railway debugging
+    if (error.name === 'SequelizeConnectionError') {
+      console.error("   Connection error details:");
+      console.error("   - Error code:", error.original?.code || "unknown");
+      console.error("   - Error errno:", error.original?.errno || "unknown");
+      console.error("   - SQL State:", error.original?.sqlState || "unknown");
+    }
+    
+    throw error; // Re-throw to handle in server startup
+  }
 }
 
 // ✅ Railway must listen on 0.0.0.0
@@ -469,12 +518,27 @@ server.listen(PORT, HOST, async () => {
 
   try {
     await syncDatabase();
+    console.log("✅ Database connected successfully");
 
-    // Jobs
-    stockLevelChecker.start();
-    expirationChecker.start();
-    console.log("✅ Jobs started");
+    // Start jobs with error handling
+    try {
+      stockLevelChecker.start();
+      console.log("✅ Stock level checker started");
+    } catch (jobError) {
+      console.error("⚠️ Stock level checker failed to start:", jobError.message);
+    }
+
+    try {
+      expirationChecker.start();
+      console.log("✅ Expiration checker started");
+    } catch (jobError) {
+      console.error("⚠️ Expiration checker failed to start:", jobError.message);
+    }
+
+    console.log("✅ Server startup complete");
   } catch (err) {
     console.error("❌ Startup error:", err.message);
+    // Don't exit - let the server run even if jobs fail
+    console.log("⚠️ Server running with limited functionality");
   }
 });

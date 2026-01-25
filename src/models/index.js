@@ -23,25 +23,65 @@ const hasRailwayMysql =
   process.env.MYSQLDATABASE &&
   process.env.MYSQLPASSWORD;
 
-const sequelize = hasRailwayMysql
-  ? new Sequelize(
-      process.env.MYSQLDATABASE,
-      process.env.MYSQLUSER,
-      process.env.MYSQLPASSWORD,
-      {
-        host: process.env.MYSQLHOST,
-        port: process.env.MYSQLPORT || 3306,
-        dialect: "mysql",
-        logging: false,
-      },
-    )
-  : new Sequelize(config.database, config.username, config.password, {
-      host: config.host || "localhost",
-      port: config.port || 3306,
-      dialect: config.dialect || "mysql",
+// Try public URL first if available, then internal
+const hasRailwayPublicUrl = process.env.MYSQL_PUBLIC_URL;
+
+let sequelize;
+
+if (hasRailwayPublicUrl) {
+  // Use public URL connection (more reliable for Railway)
+  console.log("🔄 Using Railway MySQL public URL connection");
+  sequelize = new Sequelize(process.env.MYSQL_PUBLIC_URL, {
+    dialect: "mysql",
+    logging: false,
+    dialectOptions: {
+      connectTimeout: 60000,
+      acquireTimeout: 60000,
+      timeout: 60000,
+    },
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    }
+  });
+} else if (hasRailwayMysql) {
+  // Use individual environment variables
+  console.log("🔄 Using Railway MySQL individual variables");
+  sequelize = new Sequelize(
+    process.env.MYSQLDATABASE,
+    process.env.MYSQLUSER,
+    process.env.MYSQLPASSWORD,
+    {
+      host: process.env.MYSQLHOST,
+      port: process.env.MYSQLPORT || 3306,
+      dialect: "mysql",
       logging: false,
-      ...(config || {}),
-    });
+      dialectOptions: {
+        connectTimeout: 60000,
+        acquireTimeout: 60000,
+        timeout: 60000,
+      },
+      pool: {
+        max: 5,
+        min: 0,
+        acquire: 30000,
+        idle: 10000
+      }
+    }
+  );
+} else {
+  // Local development fallback
+  console.log("🔄 Using local development database config");
+  sequelize = new Sequelize(config.database, config.username, config.password, {
+    host: config.host || "localhost",
+    port: config.port || 3306,
+    dialect: config.dialect || "mysql",
+    logging: false,
+    ...(config || {}),
+  });
+}
 
 // Load all models
 fs.readdirSync(__dirname)
