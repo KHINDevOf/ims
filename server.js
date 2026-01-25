@@ -312,75 +312,31 @@
 // console.log('🚀 Starting Inventory Management System Server...');
 
 const express = require("express");
-// console.log('✅ Express loaded');
-
 const cors = require("cors");
-// console.log('✅ CORS loaded');
-
 const http = require("http");
-// console.log('✅ HTTP loaded');
-
 const socketIo = require("socket.io");
-// console.log('✅ Socket.IO loaded');
-
-// Import routes
-// console.log('📁 Loading routes...');
-const customerRoute = require("./src/routes/customerRoute");
-// console.log('✅ Customer route loaded');
-
-const categoryRoute = require("./src/routes/categoryRoute");
-// console.log('✅ Category route loaded');
-
-const brandRoute = require("./src/routes/brandRoute");
-// console.log('✅ Brand route loaded');
-
-const productRoute = require("./src/routes/productRoute");
-// console.log('✅ Product route loaded');
-
-const SupplierRoute = require("./src/routes/SupplierRoute");
-// console.log('✅ Supplier route loaded');
-
-const PurchaseRoute = require("./src/routes/PurchaseRoute");
-// console.log('✅ Purchase route loaded');
-
-const PurchaseItem = require("./src/routes/PurchaseItemRoute");
-// console.log('✅ Purchase Item route loaded');
-
-const Sales = require("./src/routes/SaleRoute");
-// console.log('✅ Sales route loaded');
-
-const PaymentRoutes = require("./src/routes/PaymentRoute");
-// console.log('✅ Payment route loaded');
-
-const User = require("./src/routes/UserRoute");
-// console.log('✅ User route loaded');
-
-const Role = require("./src/routes/RoleRoute");
-// console.log('✅ Role route loaded');
-
-const notificationRoutes = require("./src/routes/notificationRoutes");
-// console.log('✅ Notification routes loaded');
-
-const reportRoutes = require("./src/routes/reportRoutes");
-// console.log('✅ Report routes loaded');
-
-const setupRoutes = require("./src/routes/SetupRoute");
-// console.log('✅ Setup routes loaded');
-
-const settingsRoutes = require("./src/routes/settingsRoute");
-// console.log('✅ Settings routes loaded');
-
-const dashboardRoute = require("./src/routes/dashboardRoute");
-// console.log('✅ Dashboard route loaded');
-
-const stockRoutes = require("./src/routes/stockRoutes");
-// console.log('✅ Stock routes loaded');
-
-const StaffRoutes = require("./src/routes/StaffRoute");
-// console.log('✅ Staff routes loaded');
 
 const db = require("./src/models");
 const sequelize = db.sequelize;
+
+const customerRoute = require("./src/routes/customerRoute");
+const categoryRoute = require("./src/routes/categoryRoute");
+const brandRoute = require("./src/routes/brandRoute");
+const productRoute = require("./src/routes/productRoute");
+const SupplierRoute = require("./src/routes/SupplierRoute");
+const PurchaseRoute = require("./src/routes/PurchaseRoute");
+const PurchaseItem = require("./src/routes/PurchaseItemRoute");
+const Sales = require("./src/routes/SaleRoute");
+const PaymentRoutes = require("./src/routes/PaymentRoute");
+const User = require("./src/routes/UserRoute");
+const Role = require("./src/routes/RoleRoute");
+const notificationRoutes = require("./src/routes/notificationRoutes");
+const reportRoutes = require("./src/routes/reportRoutes");
+const setupRoutes = require("./src/routes/SetupRoute");
+const settingsRoutes = require("./src/routes/settingsRoute");
+const dashboardRoute = require("./src/routes/dashboardRoute");
+const stockRoutes = require("./src/routes/stockRoutes");
+const StaffRoutes = require("./src/routes/StaffRoute");
 
 const app = express();
 const server = http.createServer(app);
@@ -392,7 +348,7 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: (origin, cb) => {
-    if (!origin) return cb(null, true);
+    if (!origin) return cb(null, true); // Postman
     if (allowedOrigins.includes(origin)) return cb(null, true);
     return cb(new Error("Not allowed by CORS: " + origin));
   },
@@ -401,64 +357,23 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
-
 app.use(cors(corsOptions));
-
-// ✅ FIX: do NOT use "*" (can crash). Use /(.*)/
-app.options(/(.*)/, cors(corsOptions));
+app.options(/.*/, cors(corsOptions)); // ✅ Express v5 safe
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// ✅ Health checks
+// ✅ MUST have simple route so Railway can test health
 app.get("/", (req, res) => res.send("OK"));
 app.get("/api", (req, res) => res.json({ ok: true }));
-app.get("/health", async (req, res) => {
-  try {
-    await sequelize.authenticate();
-    res.json({ 
-      status: "healthy", 
-      database: "connected",
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || "development",
-      dbHost: process.env.MYSQLHOST || "not set",
-      dbName: process.env.MYSQLDATABASE || "not set"
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      status: "unhealthy", 
-      database: "disconnected",
-      error: error.message,
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || "development",
-      dbHost: process.env.MYSQLHOST || "not set",
-      dbName: process.env.MYSQLDATABASE || "not set"
-    });
-  }
-});
 
-// Simple test endpoint that doesn't require database
-app.get("/test", (req, res) => {
-  res.json({
-    message: "Server is running",
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || "development",
-    port: process.env.PORT || 3001,
-    host: "0.0.0.0"
-  });
-});
-
-// ✅ Socket.IO
+// Socket.io
 const io = socketIo(server, {
-  cors: {
-    origin: allowedOrigins,
-    credentials: true,
-    methods: ["GET", "POST"],
-  },
+  cors: { origin: allowedOrigins, credentials: true, methods: ["GET", "POST"] },
 });
 app.set("io", io);
 
-// ✅ Routes
+// Routes
 app.use("/api", reportRoutes);
 app.use("/api", dashboardRoute);
 
@@ -484,93 +399,13 @@ Role(app);
 stockRoutes(app);
 StaffRoutes(app);
 
-// ✅ DB sync
-async function syncDatabase() {
-  try {
-    console.log("🔄 Connecting to database...");
-    
-    // Log connection details for debugging
-    if (process.env.MYSQL_PUBLIC_URL) {
-      console.log("   Using Railway MySQL public URL");
-    } else if (process.env.MYSQLHOST) {
-      console.log("   Using Railway MySQL internal connection");
-      console.log("   - Host:", process.env.MYSQLHOST);
-      console.log("   - Database:", process.env.MYSQLDATABASE);
-      console.log("   - User:", process.env.MYSQLUSER);
-      console.log("   - Port:", process.env.MYSQLPORT || 3306);
-    } else {
-      console.log("   Using local development database");
-    }
-    
-    await sequelize.authenticate();
-    console.log("✅ Database authentication successful");
-    
-    await sequelize.sync({ alter: false });
-    console.log("✅ Database synchronized");
-    return true;
-  } catch (error) {
-    console.error("❌ Database connection failed:", error.message);
-    
-    // Log more details for Railway debugging
-    if (error.name === 'SequelizeConnectionError') {
-      console.error("   Connection error details:");
-      console.error("   - Error code:", error.original?.code || "unknown");
-      console.error("   - Error errno:", error.original?.errno || "unknown");
-      console.error("   - SQL State:", error.original?.sqlState || "unknown");
-    }
-    
-    throw error; // Re-throw to handle in server startup
-  }
-}
-
-// ✅ Railway must listen on 0.0.0.0
+// Start server FIRST, then try DB (so Railway won’t 502)
 const PORT = process.env.PORT || 3001;
-const HOST = "0.0.0.0";
 
-const stockLevelChecker = require("./src/jobs/stockLevelChecker");
-const expirationChecker = require("./src/jobs/expirationChecker");
+server.listen(PORT, () => {
+  console.log("✅ Server running on port", PORT);
 
-server.listen(PORT, HOST, async () => {
-  console.log(`✅ Server running on ${HOST}:${PORT}`);
-
-  try {
-    await syncDatabase();
-    console.log("✅ Database connected successfully");
-
-    // Start jobs with error handling - only if database is connected
-    try {
-      if (stockLevelChecker && typeof stockLevelChecker.start === 'function') {
-        stockLevelChecker.start();
-        console.log("✅ Stock level checker started");
-      } else {
-        console.log("⚠️ Stock level checker not available");
-      }
-    } catch (jobError) {
-      console.error("⚠️ Stock level checker failed to start:", jobError.message);
-    }
-
-    try {
-      if (expirationChecker && typeof expirationChecker.start === 'function') {
-        expirationChecker.start();
-        console.log("✅ Expiration checker started");
-      } else {
-        console.log("⚠️ Expiration checker not available");
-      }
-    } catch (jobError) {
-      console.error("⚠️ Expiration checker failed to start:", jobError.message);
-    }
-
-    console.log("✅ Server startup complete");
-  } catch (err) {
-    console.error("❌ Database connection failed:", err.message);
-    console.error("⚠️ Server running with limited functionality (database disconnected)");
-    // Don't start jobs if database is not connected
-    console.log("⚠️ Skipping job initialization due to database connection failure");
-  }
-}).on('error', (err) => {
-  console.error("❌ Server error:", err.message);
-  if (err.code === 'EADDRINUSE') {
-    console.error(`❌ Port ${PORT} is already in use`);
-    process.exit(1);
-  }
+  sequelize.authenticate()
+    .then(() => console.log("✅ DB connected"))
+    .catch((err) => console.error("❌ DB connect error:", err.message));
 });
