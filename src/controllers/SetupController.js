@@ -1,8 +1,10 @@
 // controllers/SetupController.js
 const db = require('../models');
+const bcrypt = require('bcrypt');
 const Role = db.Role;
 const Permission = db.Permission;
 const RolePermission = db.RolePermission;
+const User = db.User;
 const sequelize = db.sequelize;
 
 // Initialize roles and permissions (run seeder)
@@ -219,9 +221,126 @@ const getSetupStatus = async (req, res) => {
   }
 };
 
+// Create default admin user
+const createDefaultAdmin = async (req, res) => {
+  try {
+    // Check if any admin user already exists
+    const adminRole = await Role.findOne({ where: { name: 'ADMIN' } });
+    if (!adminRole) {
+      return res.status(400).json({
+        success: false,
+        message: "ADMIN role not found. Please run /api/setup/init first.",
+      });
+    }
+
+    const existingAdmin = await User.findOne({ 
+      where: { role_id: adminRole.id } 
+    });
+    
+    if (existingAdmin) {
+      return res.status(400).json({
+        success: false,
+        message: "Admin user already exists. Username: " + existingAdmin.username,
+      });
+    }
+
+    // Create default admin user
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    
+    const adminUser = await User.create({
+      name: 'System Administrator',
+      username: 'admin',
+      email: 'admin@inventory.com',
+      password: hashedPassword,
+      role_id: adminRole.id,
+      status: 'ACTIVE'
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Default admin user created successfully",
+      user: {
+        id: adminUser.id,
+        name: adminUser.name,
+        username: adminUser.username,
+        email: adminUser.email,
+        role: 'ADMIN'
+      },
+      credentials: {
+        username: 'admin',
+        password: 'admin123',
+        note: 'Please change this password after first login'
+      }
+    });
+  } catch (error) {
+    console.error("Error creating default admin:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error creating default admin user",
+      error: error.message,
+    });
+  }
+};
+
+// Reset and reinitialize everything
+const resetAndInit = async (req, res) => {
+  try {
+    // Delete all role permissions
+    await RolePermission.destroy({ where: {} });
+    
+    // Delete all permissions
+    await Permission.destroy({ where: {} });
+    
+    // Delete all users (except keep one admin if exists)
+    await User.destroy({ where: {} });
+    
+    // Delete all roles
+    await Role.destroy({ where: {} });
+
+    // Run the seeder
+    const seeder = require("../seeders/permissions");
+    const queryInterface = sequelize.getQueryInterface();
+    
+    await seeder.up(queryInterface, sequelize);
+
+    // Create default admin user
+    const adminRole = await Role.findOne({ where: { name: 'ADMIN' } });
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    
+    const adminUser = await User.create({
+      name: 'System Administrator',
+      username: 'admin',
+      email: 'admin@inventory.com',
+      password: hashedPassword,
+      role_id: adminRole.id,
+      status: 'ACTIVE'
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "System reset and initialized successfully with default admin user",
+      roles: ["ADMIN", "MANAGER", "INVENTORY", "SALE", "CASHIER", "USER"],
+      defaultAdmin: {
+        username: 'admin',
+        password: 'admin123',
+        note: 'Please change this password after first login'
+      }
+    });
+  } catch (error) {
+    console.error("Error resetting and initializing:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error resetting and initializing system",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   initializeRolesAndPermissions,
   ensureUserRole,
   getSetupStatus,
   fixUserRolePermissions,
+  createDefaultAdmin,
+  resetAndInit,
 };

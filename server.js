@@ -390,10 +390,9 @@ const allowedOrigins = [
   "https://courageous-hamster-1ad22a.netlify.app",
 ];
 
-// ✅ ONE cors config
 const corsOptions = {
   origin: (origin, cb) => {
-    if (!origin) return cb(null, true); // Postman / server-to-server
+    if (!origin) return cb(null, true);
     if (allowedOrigins.includes(origin)) return cb(null, true);
     return cb(new Error("Not allowed by CORS: " + origin));
   },
@@ -401,6 +400,7 @@ const corsOptions = {
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
+
 
 app.use(cors(corsOptions));
 
@@ -419,16 +419,33 @@ app.get("/health", async (req, res) => {
     res.json({ 
       status: "healthy", 
       database: "connected",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "development",
+      dbHost: process.env.MYSQLHOST || "not set",
+      dbName: process.env.MYSQLDATABASE || "not set"
     });
   } catch (error) {
     res.status(500).json({ 
       status: "unhealthy", 
       database: "disconnected",
       error: error.message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "development",
+      dbHost: process.env.MYSQLHOST || "not set",
+      dbName: process.env.MYSQLDATABASE || "not set"
     });
   }
+});
+
+// Simple test endpoint that doesn't require database
+app.get("/test", (req, res) => {
+  res.json({
+    message: "Server is running",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || "development",
+    port: process.env.PORT || 3001,
+    host: "0.0.0.0"
+  });
 });
 
 // ✅ Socket.IO
@@ -520,25 +537,40 @@ server.listen(PORT, HOST, async () => {
     await syncDatabase();
     console.log("✅ Database connected successfully");
 
-    // Start jobs with error handling
+    // Start jobs with error handling - only if database is connected
     try {
-      stockLevelChecker.start();
-      console.log("✅ Stock level checker started");
+      if (stockLevelChecker && typeof stockLevelChecker.start === 'function') {
+        stockLevelChecker.start();
+        console.log("✅ Stock level checker started");
+      } else {
+        console.log("⚠️ Stock level checker not available");
+      }
     } catch (jobError) {
       console.error("⚠️ Stock level checker failed to start:", jobError.message);
     }
 
     try {
-      expirationChecker.start();
-      console.log("✅ Expiration checker started");
+      if (expirationChecker && typeof expirationChecker.start === 'function') {
+        expirationChecker.start();
+        console.log("✅ Expiration checker started");
+      } else {
+        console.log("⚠️ Expiration checker not available");
+      }
     } catch (jobError) {
       console.error("⚠️ Expiration checker failed to start:", jobError.message);
     }
 
     console.log("✅ Server startup complete");
   } catch (err) {
-    console.error("❌ Startup error:", err.message);
-    // Don't exit - let the server run even if jobs fail
-    console.log("⚠️ Server running with limited functionality");
+    console.error("❌ Database connection failed:", err.message);
+    console.error("⚠️ Server running with limited functionality (database disconnected)");
+    // Don't start jobs if database is not connected
+    console.log("⚠️ Skipping job initialization due to database connection failure");
+  }
+}).on('error', (err) => {
+  console.error("❌ Server error:", err.message);
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use`);
+    process.exit(1);
   }
 });

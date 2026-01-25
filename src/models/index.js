@@ -31,6 +31,7 @@ let sequelize;
 if (hasRailwayPublicUrl) {
   // Use public URL connection (more reliable for Railway)
   console.log("🔄 Using Railway MySQL public URL connection");
+  console.log("   Public URL:", process.env.MYSQL_PUBLIC_URL ? "***configured***" : "not set");
   sequelize = new Sequelize(process.env.MYSQL_PUBLIC_URL, {
     dialect: "mysql",
     logging: false,
@@ -49,6 +50,10 @@ if (hasRailwayPublicUrl) {
 } else if (hasRailwayMysql) {
   // Use individual environment variables
   console.log("🔄 Using Railway MySQL individual variables");
+  console.log("   Host:", process.env.MYSQLHOST);
+  console.log("   Database:", process.env.MYSQLDATABASE);
+  console.log("   User:", process.env.MYSQLUSER);
+  console.log("   Port:", process.env.MYSQLPORT || 3306);
   sequelize = new Sequelize(
     process.env.MYSQLDATABASE,
     process.env.MYSQLUSER,

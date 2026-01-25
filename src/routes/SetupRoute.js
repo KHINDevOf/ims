@@ -4,6 +4,8 @@ const {
   ensureUserRole,
   getSetupStatus,
   fixUserRolePermissions,
+  createDefaultAdmin,
+  resetAndInit,
 } = require("../controllers/SetupController");
 
 const SetupRoutes = (app) => {
@@ -12,6 +14,12 @@ const SetupRoutes = (app) => {
   
   // Initialize roles and permissions (run seeder)
   app.post("/api/setup/init", initializeRolesAndPermissions);
+  
+  // Reset and reinitialize everything (dangerous - use with caution)
+  app.post("/api/setup/reset", resetAndInit);
+  
+  // Create default admin user
+  app.post("/api/setup/create-admin", createDefaultAdmin);
   
   // Quick fix: Create USER role if missing
   app.post("/api/setup/ensure-user-role", ensureUserRole);
