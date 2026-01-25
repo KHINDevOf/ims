@@ -340,11 +340,19 @@ const StaffRoutes = require("./src/routes/StaffRoute");
 
 const app = express();
 const server = http.createServer(app);
-
 const allowedOrigins = [
   "http://localhost:3000",
   "https://courageous-hamster-1ad22a.netlify.app",
 ];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+  methods: ["GET","POST","PUT","PATCH","DELETE","OPTIONS"],
+  allowedHeaders: ["Content-Type","Authorization"],
+}));
+
+app.options(/.*/, cors());
 
 const corsOptions = {
   origin: (origin, cb) => {

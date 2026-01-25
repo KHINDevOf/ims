@@ -15,7 +15,7 @@ var {
 } = require("../controllers/UserController");
 const auth = require("../middlewares/auth.middleware");
 const user = (app) => {
-  app.post("/api/login", login);
+  app.post("/login", login);
   app.post("/api/register", register);
 
   app.post("/api/user/send-otp", sendOTP);
