@@ -1,0 +1,213 @@
+inventory-system/
+│
+├── src/
+│   ├── config/
+│   │   └── db.js
+│   │
+│   ├── models/
+│   │   ├── User.js
+│   │   ├── Customer.js
+│   │   ├── Supplier.js
+│   │   ├── Category.js
+│   │   ├── Brand.js
+│   │   ├── Product.js
+│   │   ├── Purchase.js
+│   │   ├── PurchaseItem.js
+│   │   ├── Sale.js
+│   │   ├── SaleItem.js
+│   │   └── Payment.js
+│   │
+│   ├── controllers/
+│   │   ├── auth.controller.js
+│   │   ├── product.controller.js
+│   │   ├── customer.controller.js
+│   │   ├── sale.controller.js
+│   │   └── purchase.controller.js
+│   │
+│   ├── routes/
+│   │   ├── auth.route.js
+│   │   ├── product.route.js
+│   │   ├── customer.route.js
+│   │   ├── sale.route.js
+│   │   └── purchase.route.js
+│   │
+│   ├── middlewares/
+│   │   ├── auth.middleware.js
+│   │   └── error.middleware.js
+│   │
+│   └── app.js
+│
+└── server.js
+
+
+
+
+// models/Product.js
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/db');
+const Category = require('./Category'); // Import the Category model
+const Brand = require('./Brand'); // Import the Brand model
+
+const Product = sequelize.define('Product', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  name: {
+    type: DataTypes.STRING(100),
+    allowNull: false
+  },
+  category_id: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: Category, // Reference the Category model
+      key: 'id'
+    },
+    allowNull: false
+  },
+  brand_id: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: Brand, // Reference the Brand model
+      key: 'id'
+    },
+    allowNull: false
+  },
+  cost_price: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false
+  },
+  sale_price: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false
+  },
+  qty: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  unit: {
+    type: DataTypes.STRING(20),
+    allowNull: false
+  },
+  barcode: {
+    type: DataTypes.STRING(50),
+    unique: true, // Ensure barcode is unique
+    allowNull: false
+  },
+  created_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW // Automatically set to current date
+  },
+  image: {
+    type: DataTypes.STRING(1200), // Field for storing image URLs or paths
+    allowNull: true // This field is optional
+  },
+  status: {
+    type: DataTypes.INTEGER, // Use INTEGER instead of NUMBER
+    defaultValue: 0, // Default status value
+    allowNull: true // This field is optional
+  }
+}, {
+  tableName: 'products',
+  timestamps: false // No updatedAt field needed
+});
+
+// Set up associations
+Product.belongsTo(Category, { foreignKey: 'category_id' });
+Product.belongsTo(Brand, { foreignKey: 'brand_id' });
+
+module.exports = Product;
+
+
+const createPurchaseItem = async (req, res) => {
+  try {
+    const {
+      purchase_id,
+      product_id,
+      qty,
+      cost_price,
+      sale_price,
+      manufacture_date,
+      expire_date,
+    } = req.body;
+
+    const newPurchaseItem = await PurchaseItem.create({
+      purchase_id,
+      product_id,
+      qty,
+      cost_price,
+      sale_price,
+      manufacture_date,
+      expire_date,
+    });
+
+    // Format dates to YYYY-MM-DD
+    const formatDate = (isoString) => {
+      if (!isoString) return null;
+      return new Date(isoString).toISOString().slice(0, 10);
+    };
+
+    const formattedItem = {
+      ...newPurchaseItem.dataValues, // Sequelize instance to plain object
+      manufacture_date: formatDate(newPurchaseItem.manufacture_date),
+      expire_date: formatDate(newPurchaseItem.expire_date),
+    };
+
+    res.status(200).json({
+      message: "create purchaseItem successful",
+      newPurchaseItem: formattedItem,
+    });
+  } catch (e) {
+    res.status(500).json({
+      message: "error purchaseItem",
+      error: e.message,
+    });
+  }
+};
+
+SALe 
+// models/Sale.js
+class Sale extends Model {}
+
+Sale.init({
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  customer_id: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: Customer,
+      key: 'id',
+    },
+  },
+  total: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+  },
+  discount: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+  },
+  paid: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+  },
+  balance: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+  },
+  created_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+  },
+}, {
+  sequelize,
+  modelName: 'Sale',
+  tableName: 'sales',
+  timestamps: false,
+});
+
+module.exports = Sale;
