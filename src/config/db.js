@@ -1,5 +1,5 @@
 
-const { Sequelize } = require("sequelize");
+// const { Sequelize } = require("sequelize");
 
 // const sequelize = new Sequelize("fullstacks", "root", "", {
 //   host: "localhost",
@@ -10,14 +10,22 @@ const { Sequelize } = require("sequelize");
 
 // module.exports = sequelize;
 
+const { Sequelize } = require("sequelize");
+
 const sequelize = new Sequelize(
-  process.env.MYSQL_DATABASE || "fullstacks",
-  process.env.MYSQL_USER || "root",
-  process.env.MYSQL_PASSWORD || "",
+  process.env.MYSQLDATABASE || "fullstacks",
+  process.env.MYSQLUSER || "root",
+  process.env.MYSQLPASSWORD || "",
   {
-    host: process.env.MYSQL_HOST || "localhost",
-    port: process.env.MYSQL_PORT || 3306,
+    host: process.env.MYSQLHOST || "localhost",
+    port: Number(process.env.MYSQLPORT || 3306),
     dialect: "mysql",
     logging: false,
+    dialectOptions: {
+      // Railway MySQL often requires this, safe to keep
+      connectTimeout: 30000,
+    },
   }
 );
+
+module.exports = sequelize;
