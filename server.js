@@ -343,6 +343,7 @@ const server = http.createServer(app);
 const allowedOrigins = [
   "http://localhost:3000",
   "https://courageous-hamster-1ad22a.netlify.app",
+  "https://ims-production-c045.up.railway.app", // Add Railway domain for self-requests
 ];
 
 app.use(cors({
@@ -352,21 +353,23 @@ app.use(cors({
   allowedHeaders: ["Content-Type","Authorization"],
 }));
 
-app.options(/.*/, cors());
-
 const corsOptions = {
   origin: (origin, cb) => {
-    if (!origin) return cb(null, true); // Postman
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return cb(null, true);
+    
     if (allowedOrigins.includes(origin)) return cb(null, true);
+    
+    console.log("CORS blocked origin:", origin);
     return cb(new Error("Not allowed by CORS: " + origin));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  optionsSuccessStatus: 200 // For legacy browser support
 };
 
 app.use(cors(corsOptions));
-app.options(/.*/, cors(corsOptions)); // ✅ Express v5 safe
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -374,6 +377,52 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 // ✅ MUST have simple route so Railway can test health
 app.get("/", (req, res) => res.send("OK"));
 app.get("/api", (req, res) => res.json({ ok: true }));
+
+// CORS debug endpoint
+app.get("/cors-test", (req, res) => {
+  res.json({
+    message: "CORS test successful",
+    origin: req.headers.origin || "no origin",
+    timestamp: new Date().toISOString(),
+    allowedOrigins: allowedOrigins
+  });
+});
+
+// Health check endpoint
+app.get("/health", async (req, res) => {
+  try {
+    await sequelize.authenticate();
+    res.json({ 
+      status: "healthy", 
+      database: "connected",
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "development",
+      dbHost: process.env.MYSQLHOST || "not set",
+      dbName: process.env.MYSQLDATABASE || "not set"
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      status: "unhealthy", 
+      database: "disconnected",
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "development",
+      dbHost: process.env.MYSQLHOST || "not set",
+      dbName: process.env.MYSQLDATABASE || "not set"
+    });
+  }
+});
+
+// Simple test endpoint that doesn't require database
+app.get("/test", (req, res) => {
+  res.json({
+    message: "Server is running",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || "development",
+    port: process.env.PORT || 3001,
+    host: "0.0.0.0"
+  });
+});
 
 // Socket.io
 const io = socketIo(server, {
